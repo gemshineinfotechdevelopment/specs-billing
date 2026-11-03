@@ -1,0 +1,8 @@
+{
+  "name": "OptiBill",
+  "description": "A responsive, easy-to-use billing platform for eyewear stores featuring inventory management, POS, and detailed sales reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

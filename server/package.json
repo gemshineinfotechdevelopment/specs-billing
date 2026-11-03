@@ -1,0 +1,11 @@
+{
+  "name": "luminaoptic-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch index.ts",
+    "start": "tsx index.ts"
+  }
+}
+
