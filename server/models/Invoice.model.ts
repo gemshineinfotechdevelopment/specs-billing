@@ -32,14 +32,7 @@ const InvoiceSchema = new Schema<IInvoiceDocument>(
     customerName: { type: String, required: true },
     customerPhone: { type: String, default: '' },
     items: [InvoiceItemSchema],
-    prescription: {
-      rightEye: { sph: String, cyl: String, axis: String, add: String },
-      leftEye: { sph: String, cyl: String, axis: String, add: String },
-      pd: String,
-      lensType: String,
-      notes: String,
-      recordedAt: String,
-    },
+    prescription: { type: Schema.Types.Mixed, default: undefined },
     subtotal: { type: Number, required: true },
     totalDiscount: { type: Number, default: 0 },
     cgstAmount: { type: Number, default: 0 },
@@ -52,7 +45,7 @@ const InvoiceSchema = new Schema<IInvoiceDocument>(
     deliveryDate: { type: String },
     staffName: { type: String, default: 'Lumina Counter' },
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 export const InvoiceModel = mongoose.models.Invoice || mongoose.model<IInvoiceDocument>('Invoice', InvoiceSchema);

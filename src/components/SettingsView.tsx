@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Check, RotateCcw } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { StoreSettings } from '../types';
 
 interface SettingsViewProps {
   settings: StoreSettings;
   onSaveSettings: (newSettings: StoreSettings) => void;
-  onResetDemoData: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
   onSaveSettings,
-  onResetDemoData,
 }) => {
   const [formData, setFormData] = useState<StoreSettings>(settings);
   const [savedBanner, setSavedBanner] = useState(false);
@@ -28,7 +26,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-200">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
@@ -38,19 +36,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             Configure store identity, GSTIN tax header, invoice numbering, default low stock threshold, and receipt layout
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onResetDemoData}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          Restore Default Store Data
-        </button>
       </div>
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white border border-slate-200 rounded-xl p-6 space-y-6"
+        className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 space-y-6 w-full shadow-xs"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>

@@ -39,14 +39,14 @@ customersRouter.get('/:id', (req: Request, res: Response) => {
 });
 
 // POST /api/customers
-customersRouter.post('/', (req: Request, res: Response) => {
+customersRouter.post('/', async (req: Request, res: Response) => {
   try {
     const { id, name, phone, email, age, prescription, totalSpent, ordersCount, lastVisit } = req.body;
     if (!name) {
       return res.status(400).json({ success: false, message: 'Customer name is required' });
     }
 
-    const created = db.addCustomer({
+    const created = await db.addCustomer({
       ...(id ? { id } : {}),
       name: String(name).trim(),
       phone: String(phone || '').trim(),
@@ -65,9 +65,9 @@ customersRouter.post('/', (req: Request, res: Response) => {
 });
 
 // PUT /api/customers/:id
-customersRouter.put('/:id', (req: Request, res: Response) => {
+customersRouter.put('/:id', async (req: Request, res: Response) => {
   try {
-    const updated = db.updateCustomer(req.params.id, req.body);
+    const updated = await db.updateCustomer(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Customer not found' });
     }
@@ -78,13 +78,13 @@ customersRouter.put('/:id', (req: Request, res: Response) => {
 });
 
 // PUT /api/customers/:id/rx
-customersRouter.put('/:id/rx', (req: Request, res: Response) => {
+customersRouter.put('/:id/rx', async (req: Request, res: Response) => {
   try {
     const { prescription } = req.body;
     if (!prescription) {
       return res.status(400).json({ success: false, message: 'Prescription data is required' });
     }
-    const updated = db.updateCustomer(req.params.id, {
+    const updated = await db.updateCustomer(req.params.id, {
       prescription,
       lastVisit: new Date().toISOString().slice(0, 10),
     });
@@ -99,9 +99,9 @@ customersRouter.put('/:id/rx', (req: Request, res: Response) => {
 
 
 // DELETE /api/customers/:id
-customersRouter.delete('/:id', (req: Request, res: Response) => {
+customersRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const deleted = db.deleteCustomer(req.params.id);
+    const deleted = await db.deleteCustomer(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Customer not found' });
     }

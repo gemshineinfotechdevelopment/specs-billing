@@ -27,20 +27,10 @@ const ProductSchema = new Schema<IProductDocument>(
     hsnCode: { type: String, default: '90041000' },
     imageUrl: { type: String, default: '' },
     isUserAdded: { type: Boolean, default: true },
-    rightEyePower: {
-      sph: String,
-      cyl: String,
-      axis: String,
-      add: String,
-    },
-    leftEyePower: {
-      sph: String,
-      cyl: String,
-      axis: String,
-      add: String,
-    },
+    rightEyePower: { type: Schema.Types.Mixed, default: undefined },
+    leftEyePower: { type: Schema.Types.Mixed, default: undefined },
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 export const ProductModel = mongoose.models.Product || mongoose.model<IProductDocument>('Product', ProductSchema);

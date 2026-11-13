@@ -14,9 +14,9 @@ settingsRouter.get('/', (req: Request, res: Response) => {
 });
 
 // PUT /api/settings
-settingsRouter.put('/', (req: Request, res: Response) => {
+settingsRouter.put('/', async (req: Request, res: Response) => {
   try {
-    const updated = db.updateSettings(req.body);
+    const updated = await db.updateSettings(req.body);
     res.json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, error: (error as Error).message });

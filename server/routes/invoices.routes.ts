@@ -44,7 +44,7 @@ invoicesRouter.get('/:id', (req: Request, res: Response) => {
 });
 
 // POST /api/invoices
-invoicesRouter.post('/', (req: Request, res: Response) => {
+invoicesRouter.post('/', async (req: Request, res: Response) => {
   try {
     const invoiceData = req.body.invoiceData || (req.body.items ? req.body : null);
     const newCustomerData = req.body.newCustomerData;
@@ -55,7 +55,7 @@ invoicesRouter.post('/', (req: Request, res: Response) => {
         .json({ success: false, message: 'Valid invoice data with items is required' });
     }
 
-    const created = db.addInvoice(invoiceData, newCustomerData);
+    const created = await db.addInvoice(invoiceData, newCustomerData);
     res.status(201).json({ success: true, data: created });
   } catch (error) {
     res.status(500).json({ success: false, error: (error as Error).message });
@@ -63,9 +63,9 @@ invoicesRouter.post('/', (req: Request, res: Response) => {
 });
 
 // PUT /api/invoices/:id
-invoicesRouter.put('/:id', (req: Request, res: Response) => {
+invoicesRouter.put('/:id', async (req: Request, res: Response) => {
   try {
-    const updated = db.updateInvoice(req.params.id, req.body);
+    const updated = await db.updateInvoice(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
@@ -76,14 +76,14 @@ invoicesRouter.put('/:id', (req: Request, res: Response) => {
 });
 
 // PATCH /api/invoices/:id/status
-invoicesRouter.patch('/:id/status', (req: Request, res: Response) => {
+invoicesRouter.patch('/:id/status', async (req: Request, res: Response) => {
   try {
     const { status, collectBalance } = req.body;
     if (!status) {
       return res.status(400).json({ success: false, message: 'Status is required' });
     }
 
-    const updated = db.updateInvoiceStatus(
+    const updated = await db.updateInvoiceStatus(
       req.params.id,
       status,
       Boolean(collectBalance)
@@ -101,9 +101,9 @@ invoicesRouter.patch('/:id/status', (req: Request, res: Response) => {
 
 
 // DELETE /api/invoices/:id
-invoicesRouter.delete('/:id', (req: Request, res: Response) => {
+invoicesRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const deleted = db.deleteInvoice(req.params.id);
+    const deleted = await db.deleteInvoice(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }

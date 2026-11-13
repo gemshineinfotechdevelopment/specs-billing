@@ -49,9 +49,10 @@ productsRouter.get('/:id', (req: Request, res: Response) => {
 });
 
 // POST /api/products
-productsRouter.post('/', (req: Request, res: Response) => {
+productsRouter.post('/', async (req: Request, res: Response) => {
   try {
     const {
+      id,
       sku,
       name,
       brand,
@@ -85,7 +86,8 @@ productsRouter.post('/', (req: Request, res: Response) => {
         .json({ success: false, message: `SKU '${cleanSku}' already exists.` });
     }
 
-    const created = db.addProduct({
+    const created = await db.addProduct({
+      id: id || undefined,
       sku: cleanSku,
       name: String(name).trim(),
       brand: String(brand || 'Generic').trim(),
@@ -112,9 +114,9 @@ productsRouter.post('/', (req: Request, res: Response) => {
 });
 
 // PUT /api/products/:id
-productsRouter.put('/:id', (req: Request, res: Response) => {
+productsRouter.put('/:id', async (req: Request, res: Response) => {
   try {
-    const updated = db.updateProduct(req.params.id, req.body);
+    const updated = await db.updateProduct(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
@@ -125,9 +127,9 @@ productsRouter.put('/:id', (req: Request, res: Response) => {
 });
 
 // DELETE /api/products/:id
-productsRouter.delete('/:id', (req: Request, res: Response) => {
+productsRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const deleted = db.deleteProduct(req.params.id);
+    const deleted = await db.deleteProduct(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
@@ -138,6 +140,22 @@ productsRouter.delete('/:id', (req: Request, res: Response) => {
 });
 
 // PATCH /api/products/:id/stock
+productsRouter.patch('/:id/stock', async (req: Request, res: Response) => {
+  try {
+    const { delta } = req.body;
+    if (delta === undefined || typeof delta !== 'number') {
+      return res.status(400).json({ success: false, message: 'Numeric delta required' });
+    }
+
+    const updated = await db.adjustProductStock(req.params.id, delta);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
 productsRouter.patch('/:id/stock', (req: Request, res: Response) => {
   try {
     const { delta } = req.body;

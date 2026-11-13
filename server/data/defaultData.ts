@@ -1,7 +1,7 @@
 import { Product, Customer, SalesInvoice, StoreSettings } from '../types.js';
 
 export const DEFAULT_SETTINGS: StoreSettings = {
-  storeName: "LuminaOptic Vision Care",
+  storeName: "HHS Optic Vision Care",
   branchName: "T. Nagar Flagship Showroom",
   gstin: "33AABCL1234F1Z8",
   phone: "+91 44 2815 4400",

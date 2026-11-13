@@ -15,7 +15,7 @@ import mongoose5 from "mongoose";
 
 // server/data/defaultData.ts
 var DEFAULT_SETTINGS = {
-  storeName: "LuminaOptic Vision Care",
+  storeName: "HHS Optic Vision Care",
   branchName: "T. Nagar Flagship Showroom",
   gstin: "33AABCL1234F1Z8",
   phone: "+91 44 2815 4400",
@@ -57,20 +57,10 @@ var ProductSchema = new Schema(
     hsnCode: { type: String, default: "90041000" },
     imageUrl: { type: String, default: "" },
     isUserAdded: { type: Boolean, default: true },
-    rightEyePower: {
-      sph: String,
-      cyl: String,
-      axis: String,
-      add: String
-    },
-    leftEyePower: {
-      sph: String,
-      cyl: String,
-      axis: String,
-      add: String
-    }
+    rightEyePower: { type: Schema.Types.Mixed, default: void 0 },
+    leftEyePower: { type: Schema.Types.Mixed, default: void 0 }
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 var ProductModel = mongoose.models.Product || mongoose.model("Product", ProductSchema);
 
@@ -86,16 +76,9 @@ var CustomerSchema = new Schema2(
     lastVisit: { type: String, default: () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) },
     totalSpent: { type: Number, default: 0 },
     ordersCount: { type: Number, default: 1 },
-    prescription: {
-      rightEye: { sph: String, cyl: String, axis: String, add: String },
-      leftEye: { sph: String, cyl: String, axis: String, add: String },
-      pd: String,
-      lensType: String,
-      notes: String,
-      recordedAt: String
-    }
+    prescription: { type: Schema2.Types.Mixed, default: void 0 }
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 var CustomerModel = mongoose2.models.Customer || mongoose2.model("Customer", CustomerSchema);
 
@@ -127,14 +110,7 @@ var InvoiceSchema = new Schema3(
     customerName: { type: String, required: true },
     customerPhone: { type: String, default: "" },
     items: [InvoiceItemSchema],
-    prescription: {
-      rightEye: { sph: String, cyl: String, axis: String, add: String },
-      leftEye: { sph: String, cyl: String, axis: String, add: String },
-      pd: String,
-      lensType: String,
-      notes: String,
-      recordedAt: String
-    },
+    prescription: { type: Schema3.Types.Mixed, default: void 0 },
     subtotal: { type: Number, required: true },
     totalDiscount: { type: Number, default: 0 },
     cgstAmount: { type: Number, default: 0 },
@@ -147,7 +123,7 @@ var InvoiceSchema = new Schema3(
     deliveryDate: { type: String },
     staffName: { type: String, default: "Lumina Counter" }
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 var InvoiceModel = mongoose3.models.Invoice || mongoose3.model("Invoice", InvoiceSchema);
 
@@ -169,7 +145,7 @@ var SettingsSchema = new Schema4(
     footerTerms: { type: String, default: "" },
     defaultLowStockThreshold: { type: Number, default: 5 }
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 var SettingsModel = mongoose4.models.Settings || mongoose4.model("Settings", SettingsSchema);
 
@@ -296,55 +272,83 @@ var DataStore = class {
   getProductById(id) {
     return this.data.products.find((p) => p.id === id);
   }
-  addProduct(product) {
+  async addProduct(product) {
     const newProduct = {
       ...product,
-      id: `prd-${Date.now()}-${Math.floor(Math.random() * 1e3)}`
+      id: product.id || `prd-${Date.now()}-${Math.floor(Math.random() * 1e3)}`
     };
-    this.data.products.unshift(newProduct);
+    const exIdx = this.data.products.findIndex((p) => p.id === newProduct.id);
+    if (exIdx >= 0) {
+      this.data.products[exIdx] = newProduct;
+    } else {
+      this.data.products.unshift(newProduct);
+    }
     this.saveData(this.data);
     if (this.isMongoConnected) {
-      ProductModel.create(newProduct).catch(
-        (err) => console.error("MongoDB addProduct error:", err)
-      );
+      try {
+        await ProductModel.findOneAndUpdate(
+          { id: newProduct.id },
+          { $set: newProduct },
+          { upsert: true, new: true }
+        );
+      } catch (err) {
+        console.error("\u274C MongoDB addProduct error:", err);
+      }
     }
     return newProduct;
   }
-  updateProduct(id, updates) {
+  async updateProduct(id, updates) {
     const index = this.data.products.findIndex((p) => p.id === id);
-    if (index === -1) return null;
+    if (index === -1) {
+      if (this.isMongoConnected) {
+        const doc = await ProductModel.findOneAndUpdate({ id }, { $set: updates }, { new: true }).lean();
+        if (doc) {
+          const p = doc;
+          delete p._id;
+          delete p.__v;
+          this.data.products.unshift(p);
+          this.saveData(this.data);
+          return p;
+        }
+      }
+      return null;
+    }
     this.data.products[index] = { ...this.data.products[index], ...updates };
     this.saveData(this.data);
     if (this.isMongoConnected) {
-      ProductModel.updateOne({ id }, { $set: updates }).catch(
-        (err) => console.error("MongoDB updateProduct error:", err)
-      );
+      try {
+        await ProductModel.updateOne({ id }, { $set: updates });
+      } catch (err) {
+        console.error("\u274C MongoDB updateProduct error:", err);
+      }
     }
     return this.data.products[index];
   }
-  deleteProduct(id) {
+  async deleteProduct(id) {
     const initialLen = this.data.products.length;
     this.data.products = this.data.products.filter((p) => p.id !== id);
-    if (this.data.products.length !== initialLen) {
-      this.saveData(this.data);
-      if (this.isMongoConnected) {
-        ProductModel.deleteOne({ id }).catch(
-          (err) => console.error("MongoDB deleteProduct error:", err)
-        );
+    this.saveData(this.data);
+    if (this.isMongoConnected) {
+      try {
+        const res = await ProductModel.deleteOne({ id });
+        return res.deletedCount && res.deletedCount > 0 || initialLen !== this.data.products.length;
+      } catch (err) {
+        console.error("\u274C MongoDB deleteProduct error:", err);
       }
-      return true;
     }
-    return false;
+    return initialLen !== this.data.products.length;
   }
-  adjustProductStock(id, delta) {
+  async adjustProductStock(id, delta) {
     const product = this.getProductById(id);
     if (!product) return null;
     product.stock = Math.max(0, product.stock + delta);
     this.saveData(this.data);
     if (this.isMongoConnected) {
-      ProductModel.updateOne({ id }, { $set: { stock: product.stock } }).catch(
-        (err) => console.error("MongoDB adjustStock error:", err)
-      );
+      try {
+        await ProductModel.updateOne({ id }, { $set: { stock: product.stock } });
+      } catch (err) {
+        console.error("\u274C MongoDB adjustStock error:", err);
+      }
     }
     return product;
   }
@@ -355,7 +359,7 @@ var DataStore = class {
   getCustomerById(id) {
     return this.data.customers.find((c) => c.id === id);
   }
-  addCustomer(customer) {
+  async addCustomer(customer) {
     const newCust = {
       ...customer,
       id: customer.id || `cust-${Date.now()}-${Math.floor(Math.random() * 1e3)}`,
@@ -363,40 +367,66 @@ var DataStore = class {
       totalSpent: customer.totalSpent || 0,
       ordersCount: customer.ordersCount !== void 0 ? customer.ordersCount : 0
     };
-    this.data.customers.unshift(newCust);
+    const exIdx = this.data.customers.findIndex((c) => c.id === newCust.id);
+    if (exIdx >= 0) {
+      this.data.customers[exIdx] = newCust;
+    } else {
+      this.data.customers.unshift(newCust);
+    }
     this.saveData(this.data);
     if (this.isMongoConnected) {
-      CustomerModel.create(newCust).catch(
-        (err) => console.error("MongoDB addCustomer error:", err)
-      );
+      try {
+        await CustomerModel.findOneAndUpdate(
+          { id: newCust.id },
+          { $set: newCust },
+          { upsert: true, new: true }
+        );
+      } catch (err) {
+        console.error("\u274C MongoDB addCustomer error:", err);
+      }
     }
     return newCust;
   }
-  updateCustomer(id, updates) {
+  async updateCustomer(id, updates) {
     const index = this.data.customers.findIndex((c) => c.id === id);
-    if (index === -1) return null;
+    if (index === -1) {
+      if (this.isMongoConnected) {
+        const doc = await CustomerModel.findOneAndUpdate({ id }, { $set: updates }, { new: true }).lean();
+        if (doc) {
+          const c = doc;
+          delete c._id;
+          delete c.__v;
+          this.data.customers.unshift(c);
+          this.saveData(this.data);
+          return c;
+        }
+      }
+      return null;
+    }
     this.data.customers[index] = { ...this.data.customers[index], ...updates };
     this.saveData(this.data);
     if (this.isMongoConnected) {
-      CustomerModel.updateOne({ id }, { $set: updates }).catch(
-        (err) => console.error("MongoDB updateCustomer error:", err)
-      );
+      try {
+        await CustomerModel.updateOne({ id }, { $set: updates });
+      } catch (err) {
+        console.error("\u274C MongoDB updateCustomer error:", err);
+      }
     }
     return this.data.customers[index];
   }
-  deleteCustomer(id) {
+  async deleteCustomer(id) {
     const initialLen = this.data.customers.length;
     this.data.customers = this.data.customers.filter((c) => c.id !== id);
-    if (this.data.customers.length !== initialLen) {
-      this.saveData(this.data);
-      if (this.isMongoConnected) {
-        CustomerModel.deleteOne({ id }).catch(
-          (err) => console.error("MongoDB deleteCustomer error:", err)
-        );
+    this.saveData(this.data);
+    if (this.isMongoConnected) {
+      try {
+        const res = await CustomerModel.deleteOne({ id });
+        return res.deletedCount && res.deletedCount > 0 || initialLen !== this.data.customers.length;
+      } catch (err) {
+        console.error("\u274C MongoDB deleteCustomer error:", err);
       }
-      return true;
     }
-    return false;
+    return initialLen !== this.data.customers.length;
   }
   // Invoices
   getInvoices() {
@@ -405,7 +435,7 @@ var DataStore = class {
   getInvoiceById(id) {
     return this.data.invoices.find((i) => i.id === id);
   }
-  addInvoice(invoiceData, newCustomerData) {
+  async addInvoice(invoiceData, newCustomerData) {
     const nextNumber = 1040 + this.data.invoices.length + 1;
     const nowStr = (/* @__PURE__ */ new Date()).toLocaleString("en-IN", {
       year: "numeric",
@@ -448,49 +478,75 @@ var DataStore = class {
         }
       }
     }
-    this.data.invoices.unshift(newInvoice);
+    const exInvIdx = this.data.invoices.findIndex((inv) => inv.id === newInvoice.id);
+    if (exInvIdx >= 0) {
+      this.data.invoices[exInvIdx] = newInvoice;
+    } else {
+      this.data.invoices.unshift(newInvoice);
+    }
     this.saveData(this.data);
     if (this.isMongoConnected) {
-      InvoiceModel.create(newInvoice).catch(
-        (err) => console.error("MongoDB addInvoice error:", err)
-      );
-      newInvoice.items.forEach((sold) => {
-        ProductModel.updateOne({ id: sold.productId }, { $inc: { stock: -sold.quantity } }).catch(
-          (err) => console.error("MongoDB stock deduction error:", err)
+      try {
+        await InvoiceModel.findOneAndUpdate(
+          { id: newInvoice.id },
+          { $set: newInvoice },
+          { upsert: true, new: true }
         );
-      });
-      if (createdCustomer) {
-        CustomerModel.create(createdCustomer).catch(
-          (err) => console.error("MongoDB createCustomer on invoice error:", err)
-        );
-      } else {
-        CustomerModel.updateOne(
-          { id: invoiceData.customerId },
-          {
-            $set: {
-              lastVisit: todayIso,
-              ...invoiceData.prescription ? { prescription: invoiceData.prescription } : {}
-            },
-            $inc: { totalSpent: invoiceData.grandTotal, ordersCount: 1 }
-          }
-        ).catch((err) => console.error("MongoDB updateCustomer on invoice error:", err));
+        for (const sold of newInvoice.items) {
+          await ProductModel.updateOne({ id: sold.productId }, { $inc: { stock: -sold.quantity } });
+        }
+        if (createdCustomer) {
+          await CustomerModel.findOneAndUpdate(
+            { id: createdCustomer.id },
+            { $set: createdCustomer },
+            { upsert: true, new: true }
+          );
+        } else if (invoiceData.customerId && invoiceData.customerId !== "walk-in") {
+          await CustomerModel.updateOne(
+            { id: invoiceData.customerId },
+            {
+              $set: {
+                lastVisit: todayIso,
+                ...invoiceData.prescription ? { prescription: invoiceData.prescription } : {}
+              },
+              $inc: { totalSpent: invoiceData.grandTotal, ordersCount: 1 }
+            }
+          );
+        }
+      } catch (err) {
+        console.error("\u274C MongoDB addInvoice error:", err);
       }
     }
     return newInvoice;
   }
-  updateInvoice(id, updates) {
+  async updateInvoice(id, updates) {
     const index = this.data.invoices.findIndex((i) => i.id === id);
-    if (index === -1) return null;
+    if (index === -1) {
+      if (this.isMongoConnected) {
+        const doc = await InvoiceModel.findOneAndUpdate({ id }, { $set: updates }, { new: true }).lean();
+        if (doc) {
+          const inv = doc;
+          delete inv._id;
+          delete inv.__v;
+          this.data.invoices.unshift(inv);
+          this.saveData(this.data);
+          return inv;
+        }
+      }
+      return null;
+    }
     this.data.invoices[index] = { ...this.data.invoices[index], ...updates };
     this.saveData(this.data);
     if (this.isMongoConnected) {
-      InvoiceModel.updateOne({ id }, { $set: updates }).catch(
-        (err) => console.error("MongoDB updateInvoice error:", err)
-      );
+      try {
+        await InvoiceModel.updateOne({ id }, { $set: updates });
+      } catch (err) {
+        console.error("\u274C MongoDB updateInvoice error:", err);
+      }
     }
     return this.data.invoices[index];
   }
-  updateInvoiceStatus(id, status, collectBalance) {
+  async updateInvoiceStatus(id, status, collectBalance) {
     const invoice = this.getInvoiceById(id);
     if (!invoice) return null;
     invoice.orderStatus = status;
@@ -500,44 +556,50 @@ var DataStore = class {
     }
     this.saveData(this.data);
     if (this.isMongoConnected) {
-      InvoiceModel.updateOne(
-        { id },
-        {
-          $set: {
-            orderStatus: status,
-            amountPaid: invoice.amountPaid,
-            balanceDue: invoice.balanceDue
+      try {
+        await InvoiceModel.updateOne(
+          { id },
+          {
+            $set: {
+              orderStatus: status,
+              amountPaid: invoice.amountPaid,
+              balanceDue: invoice.balanceDue
+            }
           }
-        }
-      ).catch((err) => console.error("MongoDB updateInvoiceStatus error:", err));
+        );
+      } catch (err) {
+        console.error("\u274C MongoDB updateInvoiceStatus error:", err);
+      }
     }
     return invoice;
   }
-  deleteInvoice(id) {
+  async deleteInvoice(id) {
     const initialLen = this.data.invoices.length;
     this.data.invoices = this.data.invoices.filter((i) => i.id !== id);
-    if (this.data.invoices.length !== initialLen) {
-      this.saveData(this.data);
-      if (this.isMongoConnected) {
-        InvoiceModel.deleteOne({ id }).catch(
-          (err) => console.error("MongoDB deleteInvoice error:", err)
-        );
+    this.saveData(this.data);
+    if (this.isMongoConnected) {
+      try {
+        const res = await InvoiceModel.deleteOne({ id });
+        return res.deletedCount && res.deletedCount > 0 || initialLen !== this.data.invoices.length;
+      } catch (err) {
+        console.error("\u274C MongoDB deleteInvoice error:", err);
       }
-      return true;
     }
-    return false;
+    return initialLen !== this.data.invoices.length;
   }
   // Settings
   getSettings() {
     return this.data.settings;
   }
-  updateSettings(updates) {
+  async updateSettings(updates) {
     this.data.settings = { ...this.data.settings, ...updates };
     this.saveData(this.data);
     if (this.isMongoConnected) {
-      SettingsModel.findOneAndUpdate({}, { $set: updates }, { upsert: true }).catch(
-        (err) => console.error("MongoDB updateSettings error:", err)
-      );
+      try {
+        await SettingsModel.findOneAndUpdate({}, { $set: updates }, { upsert: true, new: true });
+      } catch (err) {
+        console.error("\u274C MongoDB updateSettings error:", err);
+      }
     }
     return this.data.settings;
   }
@@ -596,9 +658,10 @@ productsRouter.get("/:id", (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-productsRouter.post("/", (req, res) => {
+productsRouter.post("/", async (req, res) => {
   try {
     const {
+      id,
       sku,
       name,
       brand,
@@ -625,7 +688,8 @@ productsRouter.post("/", (req, res) => {
     if (existing) {
       return res.status(409).json({ success: false, message: `SKU '${cleanSku}' already exists.` });
     }
-    const created = db.addProduct({
+    const created = await db.addProduct({
+      id: id || void 0,
       sku: cleanSku,
       name: String(name).trim(),
       brand: String(brand || "Generic").trim(),
@@ -649,9 +713,9 @@ productsRouter.post("/", (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-productsRouter.put("/:id", (req, res) => {
+productsRouter.put("/:id", async (req, res) => {
   try {
-    const updated = db.updateProduct(req.params.id, req.body);
+    const updated = await db.updateProduct(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
@@ -660,13 +724,28 @@ productsRouter.put("/:id", (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-productsRouter.delete("/:id", (req, res) => {
+productsRouter.delete("/:id", async (req, res) => {
   try {
-    const deleted = db.deleteProduct(req.params.id);
+    const deleted = await db.deleteProduct(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
     res.json({ success: true, message: "Product deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+productsRouter.patch("/:id/stock", async (req, res) => {
+  try {
+    const { delta } = req.body;
+    if (delta === void 0 || typeof delta !== "number") {
+      return res.status(400).json({ success: false, message: "Numeric delta required" });
+    }
+    const updated = await db.adjustProductStock(req.params.id, delta);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+    res.json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -716,13 +795,13 @@ customersRouter.get("/:id", (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-customersRouter.post("/", (req, res) => {
+customersRouter.post("/", async (req, res) => {
   try {
     const { id, name, phone, email, age, prescription, totalSpent, ordersCount, lastVisit } = req.body;
     if (!name) {
       return res.status(400).json({ success: false, message: "Customer name is required" });
     }
-    const created = db.addCustomer({
+    const created = await db.addCustomer({
       ...id ? { id } : {},
       name: String(name).trim(),
       phone: String(phone || "").trim(),
@@ -738,9 +817,9 @@ customersRouter.post("/", (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-customersRouter.put("/:id", (req, res) => {
+customersRouter.put("/:id", async (req, res) => {
   try {
-    const updated = db.updateCustomer(req.params.id, req.body);
+    const updated = await db.updateCustomer(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({ success: false, message: "Customer not found" });
     }
@@ -749,13 +828,13 @@ customersRouter.put("/:id", (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-customersRouter.put("/:id/rx", (req, res) => {
+customersRouter.put("/:id/rx", async (req, res) => {
   try {
     const { prescription } = req.body;
     if (!prescription) {
       return res.status(400).json({ success: false, message: "Prescription data is required" });
     }
-    const updated = db.updateCustomer(req.params.id, {
+    const updated = await db.updateCustomer(req.params.id, {
       prescription,
       lastVisit: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)
     });
@@ -767,9 +846,9 @@ customersRouter.put("/:id/rx", (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-customersRouter.delete("/:id", (req, res) => {
+customersRouter.delete("/:id", async (req, res) => {
   try {
-    const deleted = db.deleteCustomer(req.params.id);
+    const deleted = await db.deleteCustomer(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Customer not found" });
     }
@@ -811,22 +890,22 @@ invoicesRouter.get("/:id", (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-invoicesRouter.post("/", (req, res) => {
+invoicesRouter.post("/", async (req, res) => {
   try {
     const invoiceData = req.body.invoiceData || (req.body.items ? req.body : null);
     const newCustomerData = req.body.newCustomerData;
     if (!invoiceData || !invoiceData.items || invoiceData.items.length === 0) {
       return res.status(400).json({ success: false, message: "Valid invoice data with items is required" });
     }
-    const created = db.addInvoice(invoiceData, newCustomerData);
+    const created = await db.addInvoice(invoiceData, newCustomerData);
     res.status(201).json({ success: true, data: created });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-invoicesRouter.put("/:id", (req, res) => {
+invoicesRouter.put("/:id", async (req, res) => {
   try {
-    const updated = db.updateInvoice(req.params.id, req.body);
+    const updated = await db.updateInvoice(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({ success: false, message: "Invoice not found" });
     }
@@ -835,13 +914,13 @@ invoicesRouter.put("/:id", (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-invoicesRouter.patch("/:id/status", (req, res) => {
+invoicesRouter.patch("/:id/status", async (req, res) => {
   try {
     const { status, collectBalance } = req.body;
     if (!status) {
       return res.status(400).json({ success: false, message: "Status is required" });
     }
-    const updated = db.updateInvoiceStatus(
+    const updated = await db.updateInvoiceStatus(
       req.params.id,
       status,
       Boolean(collectBalance)
@@ -854,9 +933,9 @@ invoicesRouter.patch("/:id/status", (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-invoicesRouter.delete("/:id", (req, res) => {
+invoicesRouter.delete("/:id", async (req, res) => {
   try {
-    const deleted = db.deleteInvoice(req.params.id);
+    const deleted = await db.deleteInvoice(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Invoice not found" });
     }
@@ -877,9 +956,9 @@ settingsRouter.get("/", (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-settingsRouter.put("/", (req, res) => {
+settingsRouter.put("/", async (req, res) => {
   try {
-    const updated = db.updateSettings(req.body);
+    const updated = await db.updateSettings(req.body);
     res.json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

@@ -274,7 +274,7 @@ export default function App() {
       setInvoices((prev) => [finalInvoice, ...prev]);
 
       // 2. Persist to server
-      api.createInvoice(invoiceData, newCustomerData).catch(console.warn);
+      api.createInvoice(finalInvoice, newCustomerData).catch(console.warn);
     }
 
     // 3. Deduct sold quantities from product stock
@@ -319,13 +319,11 @@ export default function App() {
     setActiveInvoiceModal(finalInvoice);
   };
 
-  const handleUpdateInvoiceStatus = (
+  const handleUpdateInvoiceStatus = async (
     invoiceId: string,
     status: OrderStatus,
     collectBalance: boolean
   ) => {
-    api.updateInvoiceStatus(invoiceId, status, collectBalance).catch(console.warn);
-
     setInvoices((prev) =>
       prev.map((inv) => {
         if (inv.id !== invoiceId) return inv;
@@ -341,30 +339,53 @@ export default function App() {
         return updated;
       })
     );
+    try {
+      await api.updateInvoiceStatus(invoiceId, status, collectBalance);
+    } catch (err) {
+      console.warn('Failed to update invoice status in database:', err);
+    }
   };
 
   // Product Inventory Handlers
-  const handleAddProduct = (newProd: Omit<Product, 'id'>) => {
+  const handleAddProduct = async (newProd: Omit<Product, 'id'>) => {
+    const prodId = `prd-${Date.now()}`;
     const productWithFlag: Product = {
       ...newProd,
-      id: `prd-${Date.now()}`,
+      id: prodId,
       isUserAdded: true,
     };
-    api.createProduct(productWithFlag).catch(console.warn);
     setProducts((prev) => [productWithFlag, ...prev]);
+    try {
+      const res = await api.createProduct(productWithFlag);
+      if (res?.data) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === prodId ? res.data : p))
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to save product to database:', err);
+    }
   };
 
-  const handleUpdateProduct = (updatedProd: Product) => {
+  const handleUpdateProduct = async (updatedProd: Product) => {
     const productWithFlag: Product = { ...updatedProd, isUserAdded: true };
-    api.updateProduct(productWithFlag).catch(console.warn);
     setProducts((prev) =>
       prev.map((p) => (p.id === updatedProd.id ? productWithFlag : p))
     );
+    try {
+      await api.updateProduct(productWithFlag);
+    } catch (err) {
+      console.warn('Failed to update product in database:', err);
+    }
   };
 
-  const handleDeleteProduct = (productId: string) => {
-    api.deleteProduct(productId).catch(console.warn);
+  const handleDeleteProduct = async (productId: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== productId));
+    try {
+      await api.deleteProduct(productId);
+    } catch (err) {
+      console.warn('Failed to delete product from database:', err);
+    }
   };
 
   const handleAdjustStock = async (productId: string, delta: number) => {
@@ -375,7 +396,7 @@ export default function App() {
       )
     );
 
-    // 2. Persist to backend database (db.json)
+    // 2. Persist to backend database (MongoDB / JSON)
     try {
       const res = await api.adjustStock(productId, delta);
       if (res?.data) {
@@ -384,7 +405,7 @@ export default function App() {
         );
       }
     } catch (err) {
-      console.warn('Failed to adjust stock on backend:', err);
+      console.warn('Failed to adjust stock on backend database:', err);
     }
   };
 
@@ -492,25 +513,36 @@ export default function App() {
     }
   };
 
-  const handleUpdateCustomer = (updatedCust: Customer) => {
-    api.updateCustomer(updatedCust).catch(console.warn);
+  const handleUpdateCustomer = async (updatedCust: Customer) => {
     setCustomers((prev) =>
       prev.map((c) => (c.id === updatedCust.id ? updatedCust : c))
     );
+    try {
+      await api.updateCustomer(updatedCust);
+    } catch (err) {
+      console.warn('Failed to update customer in database:', err);
+    }
   };
 
-  const handleDeleteCustomer = (customerId: string) => {
+  const handleDeleteCustomer = async (customerId: string) => {
     setCustomers((prev) => prev.filter((c) => c.id !== customerId));
-    api.deleteCustomer(customerId).catch(console.warn);
+    try {
+      await api.deleteCustomer(customerId);
+    } catch (err) {
+      console.warn('Failed to delete customer from database:', err);
+    }
   };
 
-  const handleDeleteInvoice = (invoiceId: string) => {
+  const handleDeleteInvoice = async (invoiceId: string) => {
     setInvoices((prev) => prev.filter((inv) => inv.id !== invoiceId));
-    api.deleteInvoice(invoiceId).catch(console.warn);
+    try {
+      await api.deleteInvoice(invoiceId);
+    } catch (err) {
+      console.warn('Failed to delete invoice from database:', err);
+    }
   };
 
-  const handleUpdateCustomerRx = (customerId: string, rx: OpticalPrescription) => {
-    api.updateCustomerRx(customerId, rx).catch(console.warn);
+  const handleUpdateCustomerRx = async (customerId: string, rx: OpticalPrescription) => {
     setCustomers((prev) =>
       prev.map((c) =>
         c.id === customerId
@@ -522,22 +554,26 @@ export default function App() {
           : c
       )
     );
+    try {
+      await api.updateCustomerRx(customerId, rx);
+    } catch (err) {
+      console.warn('Failed to update customer prescription in database:', err);
+    }
   };
 
-  const handleResetDemoData = () => {
-    api.resetSettings().catch(console.warn);
-    setProducts(INITIAL_PRODUCTS);
-    setCustomers(INITIAL_CUSTOMERS);
-    setInvoices(INITIAL_INVOICES);
-    setSettings(INITIAL_SETTINGS);
-  };
-
-  const handleSaveSettings = (newSettings: StoreSettings) => {
-    api.updateSettings(newSettings).catch(console.warn);
+  const handleSaveSettings = async (newSettings: StoreSettings) => {
     setSettings(newSettings);
     try {
       localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(newSettings));
     } catch {}
+    try {
+      const res = await api.updateSettings(newSettings);
+      if (res?.data) {
+        setSettings(res.data);
+      }
+    } catch (err) {
+      console.warn('Failed to save settings to database:', err);
+    }
   };
 
   const navItems: {
@@ -758,7 +794,6 @@ export default function App() {
             <SettingsView
               settings={settings}
               onSaveSettings={handleSaveSettings}
-              onResetDemoData={handleResetDemoData}
             />
           )}
         </main>
@@ -841,16 +876,6 @@ export default function App() {
             <div className="p-4 border-t border-slate-800 text-xs text-slate-400 space-y-1.5">
               <div className="font-medium text-slate-200 truncate">{settings.storeName}</div>
               <div className="font-mono text-[11px] truncate">GSTIN: {settings.gstin}</div>
-              {serverOnline !== null && (
-                <div className="text-[10px] text-slate-400 flex items-center gap-1.5 pt-1">
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      serverOnline ? 'bg-emerald-400 ring-2 ring-emerald-400/20' : 'bg-amber-400 ring-2 ring-amber-400/20'
-                    }`}
-                  />
-                  <span>{serverOnline ? 'Backend Online (Port 5000)' : 'Offline Local Storage'}</span>
-                </div>
-              )}
             </div>
           </aside>
         </div>

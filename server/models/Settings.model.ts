@@ -19,7 +19,7 @@ const SettingsSchema = new Schema<ISettingsDocument>(
     footerTerms: { type: String, default: '' },
     defaultLowStockThreshold: { type: Number, default: 5 },
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 export const SettingsModel = mongoose.models.Settings || mongoose.model<ISettingsDocument>('Settings', SettingsSchema);

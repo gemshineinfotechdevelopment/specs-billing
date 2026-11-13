@@ -15,16 +15,9 @@ const CustomerSchema = new Schema<ICustomerDocument>(
     lastVisit: { type: String, default: () => new Date().toISOString().slice(0, 10) },
     totalSpent: { type: Number, default: 0 },
     ordersCount: { type: Number, default: 1 },
-    prescription: {
-      rightEye: { sph: String, cyl: String, axis: String, add: String },
-      leftEye: { sph: String, cyl: String, axis: String, add: String },
-      pd: String,
-      lensType: String,
-      notes: String,
-      recordedAt: String,
-    },
+    prescription: { type: Schema.Types.Mixed, default: undefined },
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 export const CustomerModel = mongoose.models.Customer || mongoose.model<ICustomerDocument>('Customer', CustomerSchema);

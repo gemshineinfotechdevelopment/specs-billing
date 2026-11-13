@@ -3,7 +3,7 @@
   "customers": [],
   "invoices": [],
   "settings": {
-    "storeName": "LuminaOptic Vision Care",
+    "storeName": "HHS Optic Vision Care",
     "branchName": "T. Nagar Flagship Showroom",
     "gstin": "33AABCL1234F1Z8",
     "phone": "+91 44 2815 4400",
@@ -17,6 +17,6 @@
     "footerTerms": "1. Lens fitting warranties valid for 1 year against coating peel.\n2. No refund after lens surfacing is initiated.\n3. Goods once sold can be adjusted against store credit within 7 days.",
     "defaultLowStockThreshold": 5,
     "createdAt": "2026-11-03T06:03:01.477Z",
-    "updatedAt": "2026-11-03T06:03:01.477Z"
+    "updatedAt": "2026-11-11T07:25:02.513Z"
   }
 }
